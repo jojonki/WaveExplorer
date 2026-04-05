@@ -1,0 +1,7 @@
+.vscodeignore
+.vscode
+.claude
+node_modules/
+out/
+*.vsix
+*.wav

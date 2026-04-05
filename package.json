@@ -1,0 +1,118 @@
+{
+  "name": "vis-audio",
+  "displayName": "vis-audio",
+  "description": "WAV file audio visualization with waveform and mel spectrogram",
+  "version": "0.1.0",
+  "publisher": "vis-audio",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Visualization"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "visAudio.wavEditor",
+        "displayName": "WAV Audio Visualizer",
+        "selector": [
+          { "filenamePattern": "*.wav" },
+          { "filenamePattern": "*.WAV" }
+        ],
+        "priority": "default"
+      }
+    ],
+    "configuration": {
+      "title": "vis-audio",
+      "properties": {
+        "visAudio.waveform.color": {
+          "type": "string",
+          "default": "#4fc3f7",
+          "description": "Waveform stroke color (CSS color string)"
+        },
+        "visAudio.spectrogram.colormap": {
+          "type": "string",
+          "enum": ["viridis", "magma", "inferno", "plasma", "grayscale"],
+          "enumDescriptions": [
+            "Viridis (blue-green-yellow)",
+            "Magma (black-purple-orange-white)",
+            "Inferno (black-purple-red-yellow)",
+            "Plasma (blue-pink-yellow)",
+            "Grayscale"
+          ],
+          "default": "viridis",
+          "description": "Colormap used for the mel spectrogram heatmap"
+        },
+        "visAudio.mel.nMels": {
+          "type": "integer",
+          "default": 128,
+          "minimum": 8,
+          "maximum": 512,
+          "description": "Number of mel frequency bands"
+        },
+        "visAudio.mel.nFFT": {
+          "type": "integer",
+          "enum": [256, 512, 1024, 2048, 4096],
+          "default": 2048,
+          "description": "FFT window size (must be power of 2)"
+        },
+        "visAudio.mel.hopLength": {
+          "type": "integer",
+          "default": 512,
+          "minimum": 64,
+          "description": "Number of samples between successive STFT frames"
+        },
+        "visAudio.mel.fMin": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "description": "Minimum frequency for mel filterbank (Hz)"
+        },
+        "visAudio.mel.fMax": {
+          "type": ["number", "null"],
+          "default": null,
+          "description": "Maximum frequency for mel filterbank (Hz). null = Nyquist frequency."
+        },
+        "visAudio.mel.windowType": {
+          "type": "string",
+          "enum": ["hann", "hamming", "blackman", "rectangular"],
+          "default": "hann",
+          "description": "Window function applied to each STFT frame"
+        },
+        "visAudio.keybindings.play": {
+          "type": "string",
+          "default": "Space",
+          "description": "Key to start/resume playback. Use \"Space\" for the spacebar, or any KeyboardEvent.key value (e.g. \"p\", \"Enter\")."
+        },
+        "visAudio.keybindings.pause": {
+          "type": "string",
+          "default": "p",
+          "description": "Key to pause playback (KeyboardEvent.key value)."
+        },
+        "visAudio.keybindings.stop": {
+          "type": "string",
+          "default": "s",
+          "description": "Key to stop playback (KeyboardEvent.key value)."
+        },
+        "visAudio.keybindings.loop": {
+          "type": "string",
+          "default": "l",
+          "description": "Key to toggle loop mode (KeyboardEvent.key value)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "node esbuild.config.mjs",
+    "watch": "node esbuild.config.mjs --watch",
+    "package": "node esbuild.config.mjs --production && vsce package",
+    "vscode:prepublish": "npm run package",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.webview.json"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.3.0"
+  }
+}
