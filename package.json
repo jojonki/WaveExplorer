@@ -4,6 +4,11 @@
   "description": "WAV file audio visualization with waveform and mel spectrogram",
   "version": "0.1.0",
   "publisher": "vis-audio",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jojonki/vis-audio.git"
+  },
+  "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -110,8 +115,8 @@
   "scripts": {
     "compile": "node esbuild.config.mjs",
     "watch": "node esbuild.config.mjs --watch",
-    "package": "node esbuild.config.mjs --production && vsce package",
-    "vscode:prepublish": "npm run package",
+    "package": "vsce package",
+    "vscode:prepublish": "node esbuild.config.mjs --production",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.webview.json"
   },
   "devDependencies": {
