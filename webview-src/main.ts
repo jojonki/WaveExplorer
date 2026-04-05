@@ -42,6 +42,27 @@ const spectroWrap  = document.getElementById('spectrogram-wrap')!;
 
 const controls = new Controls(controlsEl, engine, { play: 'Space', pause: 'p', stop: 's', loop: 'l' });
 
+const regionDisplay = document.createElement('span');
+regionDisplay.className = 'region-display';
+regionDisplay.style.display = 'none';
+controlsEl.appendChild(regionDisplay);
+
+function formatRegionTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${String(m).padStart(2, '0')}:${s.toFixed(3).padStart(6, '0')}`;
+}
+
+function updateRegionDisplay(r: Region | null): void {
+  if (!r) {
+    regionDisplay.style.display = 'none';
+    return;
+  }
+  const dur = r.endS - r.startS;
+  regionDisplay.textContent = `sel: ${formatRegionTime(r.startS)} – ${formatRegionTime(r.endS)}  (${dur.toFixed(3)}s)`;
+  regionDisplay.style.display = '';
+}
+
 // Axis layout constants — must match waveformRenderer.ts and spectrogramRenderer.ts
 const AXIS_L = 44;
 const AXIS_R = 4;
@@ -54,12 +75,14 @@ attachRegionSelector(
   (r) => {
     currentRegion = r;
     engine.setRegion(r.startS, r.endS);
+    updateRegionDisplay(r);
     drawWaveform();
     drawSpectrogram();
   },
   () => {
     currentRegion = null;
     engine.clearRegion();
+    updateRegionDisplay(null);
     drawWaveform();
     drawSpectrogram();
   },
@@ -74,12 +97,14 @@ attachRegionSelector(
   (r) => {
     currentRegion = r;
     engine.setRegion(r.startS, r.endS);
+    updateRegionDisplay(r);
     drawWaveform();
     drawSpectrogram();
   },
   () => {
     currentRegion = null;
     engine.clearRegion();
+    updateRegionDisplay(null);
     drawWaveform();
     drawSpectrogram();
   },
@@ -330,6 +355,7 @@ function buildLayout(): string {
   .control-btn:disabled { opacity: 0.4; cursor: default; }
   .control-btn.active { background: #1a6496; border-color: #4fc3f7; color: #fff; }
   .time-display { margin-left: 8px; color: #4fc3f7; font-family: monospace; font-size: 12px; }
+  .region-display { margin-left: 12px; color: #80cbc4; font-family: monospace; font-size: 12px; border-left: 1px solid #444; padding-left: 12px; }
   .section-label { color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 0 4px; }
   .section { display: flex; flex-direction: column; }
   .canvas-wrap { width: 100%; overflow: hidden; background: #1e1e1e; border: 1px solid #333; border-radius: 3px; }
