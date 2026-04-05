@@ -108,13 +108,26 @@ export class AudioEngine {
     if (!this.ctx || !this.source) { return this.startOffset; }
     const effectiveEnd = this.regionEnd ?? (this.buffer?.duration ?? 0);
     const elapsed = this.ctx.currentTime - this.startTime;
+
+    if (this.source.loop) {
+      const regionDuration = effectiveEnd - this.regionStart;
+      if (regionDuration > 0) {
+        const firstSegment = effectiveEnd - this.startOffset;
+        if (elapsed <= firstSegment) {
+          return this.startOffset + elapsed;
+        }
+        const afterFirst = elapsed - firstSegment;
+        return this.regionStart + (afterFirst % regionDuration);
+      }
+    }
+
     return Math.min(this.startOffset + elapsed, effectiveEnd);
   }
 
   setRegion(startS: number, endS: number | null): void {
     this.regionStart = startS;
     this.regionEnd = endS;
-    if (this._state === 'stopped') {
+    if (this._state !== 'playing') {
       this.startOffset = startS;
     }
   }
