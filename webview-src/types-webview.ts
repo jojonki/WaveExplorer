@@ -34,7 +34,7 @@ export interface KeybindingsConfig {
 
 export interface VisConfig {
   waveform: { color: string };
-  spectrogram: { colormap: ColormapName };
+  spectrogram: { colormap: ColormapName; useMel: boolean };
   mel: MelConfig;
   keybindings: KeybindingsConfig;
 }

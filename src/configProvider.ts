@@ -9,6 +9,7 @@ export function getConfig(resourceUri?: vscode.Uri): VisConfig {
     },
     spectrogram: {
       colormap: cfg.get<ColormapName>('spectrogram.colormap', 'viridis'),
+      useMel: cfg.get<boolean>('spectrogram.useMel', true),
     },
     mel: {
       nMels: cfg.get<number>('mel.nMels', 128),

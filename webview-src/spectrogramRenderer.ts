@@ -21,17 +21,18 @@ export interface SpectroRegion {
 
 export function renderSpectrogram(
   canvas: HTMLCanvasElement,
-  melData: Float32Array,
+  spectroData: Float32Array,
   nFrames: number,
-  nMels: number,
+  nFreqBins: number,
   colormap: ColormapName,
   duration: number,
   fMin: number,
   fMax: number,
+  useMel: boolean,
   region: SpectroRegion | null = null,
   playheadS: number | null = null
 ): void {
-  if (nFrames === 0 || nMels === 0) { return; }
+  if (nFrames === 0 || nFreqBins === 0) { return; }
 
   const dpr = window.devicePixelRatio || 1;
 
@@ -60,27 +61,27 @@ export function renderSpectrogram(
   // ---- Render spectrogram into offscreen ImageData ----
   let globalMin = Infinity;
   let globalMax = -Infinity;
-  for (let i = 0; i < melData.length; i++) {
-    const v = melData[i];
+  for (let i = 0; i < spectroData.length; i++) {
+    const v = spectroData[i];
     if (v < globalMin) { globalMin = v; }
     if (v > globalMax) { globalMax = v; }
   }
   const range = globalMax - globalMin || 1;
   const lut = COLORMAPS[colormap];
 
-  // Draw into an offscreen canvas at nFrames×nMels, then scale to drawW×drawH
-  const offscreen = new OffscreenCanvas(nFrames, nMels);
+  // Draw into an offscreen canvas at nFrames×nFreqBins, then scale to drawW×drawH
+  const offscreen = new OffscreenCanvas(nFrames, nFreqBins);
   const offCtx = offscreen.getContext('2d')!;
-  const imageData = offCtx.createImageData(nFrames, nMels);
+  const imageData = offCtx.createImageData(nFrames, nFreqBins);
   const pixels = imageData.data;
 
   for (let t = 0; t < nFrames; t++) {
-    for (let m = 0; m < nMels; m++) {
-      const value = melData[t * nMels + m];
+    for (let m = 0; m < nFreqBins; m++) {
+      const value = spectroData[t * nFreqBins + m];
       const norm = (value - globalMin) / range;
       const idx = Math.max(0, Math.min(255, Math.floor(norm * 255)));
       const [r, g, b] = lut[idx];
-      const row = nMels - 1 - m; // low freq at bottom
+      const row = nFreqBins - 1 - m; // low freq at bottom
       const pixelIdx = (row * nFrames + t) * 4;
       pixels[pixelIdx]     = r;
       pixels[pixelIdx + 1] = g;
@@ -97,7 +98,16 @@ export function renderSpectrogram(
   // ---- Y-axis (frequency in Hz) ----
   const melMin = hzToMel(fMin === 0 ? 20 : fMin);
   const melMax = hzToMel(fMax);
-  const { labeled: freqLabeled, unlabeled: freqMinor } = niceFreqTicks(fMin, fMax, melMin, melMax, drawH, dpr);
+
+  function freqToYPos(hz: number): number {
+    if (useMel) {
+      return (hzToMel(hz) - melMin) / (melMax - melMin);
+    } else {
+      return (hz - fMin) / (fMax - fMin);
+    }
+  }
+
+  const { labeled: freqLabeled, unlabeled: freqMinor } = niceFreqTicks(fMin, fMax, melMin, melMax, drawH, dpr, useMel);
 
   ctx.font = `${10 * dpr}px monospace`;
   ctx.textAlign = 'right';
@@ -105,8 +115,7 @@ export function renderSpectrogram(
 
   // Minor grid lines (no label)
   for (const hz of freqMinor) {
-    const melPos = (hzToMel(hz) - melMin) / (melMax - melMin);
-    const y = y0 + (1 - melPos) * drawH;
+    const y = y0 + (1 - freqToYPos(hz)) * drawH;
     ctx.strokeStyle = 'rgba(255,255,255,0.06)';
     ctx.lineWidth = dpr;
     ctx.setLineDash([2 * dpr, 4 * dpr]);
@@ -119,8 +128,7 @@ export function renderSpectrogram(
 
   // Major grid lines (with label)
   for (const hz of freqLabeled) {
-    const melPos = (hzToMel(hz) - melMin) / (melMax - melMin);
-    const y = y0 + (1 - melPos) * drawH;
+    const y = y0 + (1 - freqToYPos(hz)) * drawH;
     ctx.strokeStyle = 'rgba(255,255,255,0.14)';
     ctx.lineWidth = dpr;
     ctx.beginPath();
@@ -198,7 +206,8 @@ export function renderSpectrogram(
 function niceFreqTicks(
   fMin: number, fMax: number,
   melMin: number, melMax: number,
-  drawH: number, dpr: number
+  drawH: number, dpr: number,
+  useMel: boolean
 ): { labeled: number[]; unlabeled: number[] } {
   // Candidate ticks at perceptually meaningful Hz values
   const allCandidates = [
@@ -217,8 +226,10 @@ function niceFreqTicks(
   // Process from top (high freq) to bottom (low freq) to prioritize high-freq labels
   const inRangeLabeled = inRange.filter(f => labeledSet.has(f)).reverse();
   for (const hz of inRangeLabeled) {
-    const melPos = (hzToMel(hz) - melMin) / (melMax - melMin);
-    const y = (1 - melPos) * drawH;
+    const pos = useMel
+      ? (hzToMel(hz) - melMin) / (melMax - melMin)
+      : (hz - fMin) / (fMax - fMin);
+    const y = (1 - pos) * drawH;
     if (Math.abs(y - lastY) >= minPxGap) {
       labeled.push(hz);
       lastY = y;

@@ -30,6 +30,11 @@
           "default": "#4fc3f7",
           "description": "Waveform stroke color (CSS color string)"
         },
+        "visAudio.spectrogram.useMel": {
+          "type": "boolean",
+          "default": true,
+          "description": "true = メルスペクトログラム（STFT → メルフィルタバンク → log圧縮）、false = 通常の線形周波数スペクトログラム（STFT のみ）"
+        },
         "visAudio.spectrogram.colormap": {
           "type": "string",
           "enum": ["viridis", "magma", "inferno", "plasma", "grayscale"],

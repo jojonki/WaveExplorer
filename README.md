@@ -173,16 +173,24 @@ Webview Developer Tools の Console で worker.onerror が発火していない�
 
 VSCode の設定（`settings.json` または GUI）で以下を変更できる。
 
+### スペクトログラム
+
 | 設定キー | 型 | デフォルト | 説明 |
 |----------|-----|-----------|------|
 | `visAudio.waveform.color` | string | `"#4fc3f7"` | 波形の色（CSS カラー文字列） |
-| `visAudio.spectrogram.colormap` | enum | `"viridis"` | スペクトログラムのカラーマップ |
-| `visAudio.mel.nMels` | integer | `128` | メル周波数バンド数（8〜512） |
-| `visAudio.mel.nFFT` | enum | `2048` | FFT ウィンドウサイズ（256/512/1024/2048/4096） |
-| `visAudio.mel.hopLength` | integer | `512` | STFT フレーム間のサンプル数 |
-| `visAudio.mel.fMin` | number | `0` | メルフィルタバンクの最低周波数 (Hz) |
-| `visAudio.mel.fMax` | number\|null | `null` | メルフィルタバンクの最高周波数 (Hz)、null = ナイキスト |
-| `visAudio.mel.windowType` | enum | `"hann"` | 窓関数（hann/hamming/blackman/rectangular） |
+| `visAudio.spectrogram.useMel` | boolean | `true` | `true` = メルスペクトログラム、`false` = 線形周波数スペクトログラム（STFT のみ） |
+| `visAudio.spectrogram.colormap` | enum | `"viridis"` | カラーマップ（`viridis` / `magma` / `inferno` / `plasma` / `grayscale`） |
+
+### FFT / メルフィルタバンク
+
+| 設定キー | 型 | デフォルト | 説明 |
+|----------|-----|-----------|------|
+| `visAudio.mel.nFFT` | enum | `2048` | FFT ウィンドウサイズ（`256` / `512` / `1024` / `2048` / `4096`） |
+| `visAudio.mel.hopLength` | integer | `512` | STFT フレーム間のサンプル数（最小 64） |
+| `visAudio.mel.windowType` | enum | `"hann"` | 窓関数（`hann` / `hamming` / `blackman` / `rectangular`） |
+| `visAudio.mel.fMin` | number | `0` | 表示する最低周波数 (Hz) |
+| `visAudio.mel.fMax` | number\|null | `null` | 表示する最高周波数 (Hz)、`null` = ナイキスト周波数 |
+| `visAudio.mel.nMels` | integer | `128` | メル周波数バンド数（8〜512、`useMel: true` のときのみ有効） |
 
 ### ショートカットキー
 
@@ -190,9 +198,9 @@ Webview にフォーカスがある状態でキーを押すと操作できる。
 
 | 設定キー | デフォルト | 操作 |
 |----------|-----------|------|
-| `visAudio.keybindings.play` | `"Space"` | 再生 / 一時停止からの再開 |
-| `visAudio.keybindings.pause` | `"p"` | 一時停止 |
-| `visAudio.keybindings.stop` | `"s"` | 停止（先頭に戻る） |
+| `visAudio.keybindings.play` | `"Space"` | 停止中→再生 / 一時停止中→再開 / 再生中→停止 |
+| `visAudio.keybindings.pause` | `"p"` | 再生中→一時停止 / 一時停止中→再開 |
+| `visAudio.keybindings.stop` | `"s"` | 停止（先頭／選択範囲の先頭に戻る） |
 | `visAudio.keybindings.loop` | `"l"` | ループ ON/OFF 切替 |
 
 キー値は [`KeyboardEvent.key`](https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_key_values) に準拠。スペースキーは `"Space"` と指定する。Ctrl / Meta / Alt との組み合わせは無効。
@@ -209,8 +217,8 @@ Webview にフォーカスがある状態でキーを押すと操作できる。
 ```
 
 設定変更時の挙動：
-- **カラーマップのみ変更** → キャッシュ済みのメルデータから即座に再描画（高速）
-- **メルパラメータ変更** → Worker を再起動して再計算（数百 ms〜数秒）
+- **`useMel` / FFT パラメータ変更** → スペクトログラムを再計算（数百 ms〜数秒）
+- **カラーマップのみ変更** → キャッシュ済みデータから即座に再描画（高速）
 - **波形カラー変更** → 即座に再描画
 - **ショートカットキー変更** → 即座に反映
 

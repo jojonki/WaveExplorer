@@ -35,6 +35,7 @@ export interface VisConfig {
   };
   spectrogram: {
     colormap: ColormapName;
+    useMel: boolean;
   };
   mel: MelConfig;
   keybindings: KeybindingsConfig;

@@ -18,10 +18,10 @@ let config: VisConfig | null = null;
 let metadata: WavMetadata | null = null;
 let samples: Float32Array | null = null;
 
-// Mel spectrogram state
-let melData: Float32Array | null = null;
-let melNFrames = 0;
-let melNMels = 0;
+// Spectrogram state (mel or linear STFT)
+let spectroData: Float32Array | null = null;
+let spectroNFrames = 0;
+let spectroNBins = 0; // nMels when useMel=true, nFFT/2+1 when useMel=false
 
 // Chunked audio assembly
 let chunkAccumulator: Uint8Array | null = null;
@@ -172,23 +172,24 @@ function drawWaveform(): void {
 }
 
 function drawSpectrogram(): void {
-  if (!melData || !config || !metadata) { return; }
+  if (!spectroData || !config || !metadata) { return; }
   const fMax = config.mel.fMax ?? metadata.sampleRate / 2;
   renderSpectrogram(
-    spectroEl, melData, melNFrames, melNMels,
+    spectroEl, spectroData, spectroNFrames, spectroNBins,
     config.spectrogram.colormap,
     metadata.durationSeconds,
     config.mel.fMin,
     fMax,
+    config.spectrogram.useMel,
     currentRegion,
     engine.state === 'stopped' ? null : engine.getCurrentTime()
   );
 }
 
-// ---- Mel computation (inline, no worker) ----
-async function computeMel(mel: MelConfig, sr: number): Promise<void> {
+// ---- Spectrogram computation (inline, no worker) ----
+async function computeSpectro(mel: MelConfig, sr: number, useMel: boolean): Promise<void> {
   if (!samples) { return; }
-  setStatus('Computing mel spectrogram...');
+  setStatus(useMel ? 'Computing mel spectrogram...' : 'Computing spectrogram...');
   await new Promise<void>(resolve => setTimeout(resolve, 0)); // yield to UI
 
   try {
@@ -197,17 +198,26 @@ async function computeMel(mel: MelConfig, sr: number): Promise<void> {
 
     const win = makeWindow(windowType, nFFT);
     const { data: stftData, nFrames, nBins } = stft(samples, nFFT, hopLength, win);
-    const filterbank = buildMelFilterbank(nMels, nFFT, sr, fMin, fMax);
-    const result = applyMelFilterbank(stftData, nFrames, nBins, filterbank, nMels);
 
-    melData = result;
-    melNFrames = nFrames;
-    melNMels = nMels;
+    if (useMel) {
+      const filterbank = buildMelFilterbank(nMels, nFFT, sr, fMin, fMax);
+      spectroData = applyMelFilterbank(stftData, nFrames, nBins, filterbank, nMels);
+      spectroNBins = nMels;
+    } else {
+      // Log-magnitude STFT (linear frequency)
+      const logData = new Float32Array(stftData.length);
+      for (let i = 0; i < stftData.length; i++) {
+        logData[i] = Math.log(stftData[i] * stftData[i] + 1e-9);
+      }
+      spectroData = logData;
+      spectroNBins = nBins;
+    }
+    spectroNFrames = nFrames;
     drawSpectrogram();
     spectroWrap.style.display = '';
     setStatus('');
   } catch (err) {
-    setStatus(`Mel error: ${err}`);
+    setStatus(`Spectrogram error: ${err}`);
   }
 }
 
@@ -250,7 +260,7 @@ window.addEventListener('message', async (event: MessageEvent<ExtToWebviewMessag
     if (msg.audioBase64) {
       await loadAudio(msg.audioBase64);
       if (config && metadata) {
-        void computeMel(config.mel, metadata.sampleRate);
+        void computeSpectro(config.mel, metadata.sampleRate, config.spectrogram.useMel);
       }
     } else {
       spectroWrap.style.display = 'none';
@@ -276,28 +286,29 @@ window.addEventListener('message', async (event: MessageEvent<ExtToWebviewMessag
       chunkAccumulator = null;
       await loadAudio(b64);
       if (config && metadata) {
-        void computeMel(config.mel, metadata.sampleRate);
+        void computeSpectro(config.mel, metadata.sampleRate, config.spectrogram.useMel);
       }
     }
   } else if (msg.type === 'config-update') {
-    const oldMel = config?.mel;
+    const oldConfig = config;
     config = msg.config;
     controls.updateKeybindings(config.keybindings);
 
     if (samples) { drawWaveform(); }
 
-    if (melData && config && metadata) {
-      const melChanged =
-        !oldMel ||
-        oldMel.nFFT !== config.mel.nFFT ||
-        oldMel.hopLength !== config.mel.hopLength ||
-        oldMel.nMels !== config.mel.nMels ||
-        oldMel.fMin !== config.mel.fMin ||
-        oldMel.fMax !== config.mel.fMax ||
-        oldMel.windowType !== config.mel.windowType;
+    if (spectroData && config && metadata) {
+      const spectroChanged =
+        !oldConfig ||
+        oldConfig.spectrogram.useMel !== config.spectrogram.useMel ||
+        oldConfig.mel.nFFT !== config.mel.nFFT ||
+        oldConfig.mel.hopLength !== config.mel.hopLength ||
+        oldConfig.mel.nMels !== config.mel.nMels ||
+        oldConfig.mel.fMin !== config.mel.fMin ||
+        oldConfig.mel.fMax !== config.mel.fMax ||
+        oldConfig.mel.windowType !== config.mel.windowType;
 
-      if (melChanged) {
-        void computeMel(config.mel, metadata.sampleRate);
+      if (spectroChanged) {
+        void computeSpectro(config.mel, metadata.sampleRate, config.spectrogram.useMel);
       } else {
         drawSpectrogram();
       }
