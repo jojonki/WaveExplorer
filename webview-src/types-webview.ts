@@ -46,6 +46,11 @@ export type ExtToWebviewMessage =
   | { type: 'config-update'; config: VisConfig }
   | { type: 'audio-chunk'; index: number; total: number; totalBytes: number; data: string };
 
+export type WebviewToExtMessage =
+  | { type: 'ready' }
+  | { type: 'error'; message: string }
+  | { type: 'update-use-mel'; value: boolean };
+
 export type WorkerInMessage = {
   type: 'compute';
   samples: Float32Array;

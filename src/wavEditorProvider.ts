@@ -51,6 +51,10 @@ export class WavEditorProvider implements vscode.CustomReadonlyEditorProvider {
           await this.sendAudioData(document.uri, webviewPanel.webview);
         } else if (msg.type === 'error') {
           vscode.window.showErrorMessage(`vis-audio: ${msg.message}`);
+        } else if (msg.type === 'update-use-mel') {
+          await vscode.workspace
+            .getConfiguration('visAudio')
+            .update('spectrogram.useMel', msg.value, vscode.ConfigurationTarget.Global);
         }
       },
       null,

@@ -51,7 +51,8 @@ export type ExtToWebviewMessage =
 
 export type WebviewToExtMessage =
   | { type: 'ready' }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'update-use-mel'; value: boolean };
 
 // --- Worker message types ---
 

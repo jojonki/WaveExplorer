@@ -28,7 +28,7 @@ let melWorkerReject: ((e: Error) => void) | null = null;
 
 // Chunked audio assembly
 let chunkAccumulator: Uint8Array | null = null;
-let chunkTotalBytes = 0;
+
 let chunksReceived = 0;
 let chunksTotal = 0;
 
@@ -36,12 +36,15 @@ let chunksTotal = 0;
 const app = document.getElementById('app')!;
 app.innerHTML = buildLayout();
 
-const controlsEl   = document.getElementById('controls-bar')!;
-const waveformEl   = document.getElementById('waveform-canvas') as HTMLCanvasElement;
-const spectroEl    = document.getElementById('spectrogram-canvas') as HTMLCanvasElement;
-const metaEl       = document.getElementById('metadata-panel')!;
-const statusEl     = document.getElementById('status-bar')!;
-const spectroWrap  = document.getElementById('spectrogram-wrap')!;
+const controlsEl      = document.getElementById('controls-bar')!;
+const waveformEl      = document.getElementById('waveform-canvas') as HTMLCanvasElement;
+const spectroEl       = document.getElementById('spectrogram-canvas') as HTMLCanvasElement;
+const metaEl          = document.getElementById('metadata-panel')!;
+const statusEl        = document.getElementById('status-bar')!;
+const spectroWrap     = document.getElementById('spectrogram-wrap')!;
+const spectroLabelEl  = document.getElementById('spectrogram-label')!;
+const melBtn          = document.getElementById('mel-btn') as HTMLButtonElement;
+const linearBtn       = document.getElementById('linear-btn') as HTMLButtonElement;
 
 const controls = new Controls(controlsEl, engine, { play: 'Space', pause: 'p', stop: 's', loop: 'l' });
 
@@ -337,6 +340,7 @@ window.addEventListener('message', async (event: MessageEvent<ExtToWebviewMessag
     config = msg.config;
     metadata = msg.metadata;
     controls.updateKeybindings(config.keybindings);
+    updateSpectroLabel(config.spectrogram.useMel);
     renderMetadata(metaEl, metadata);
 
     if (msg.audioBase64) {
@@ -350,8 +354,7 @@ window.addEventListener('message', async (event: MessageEvent<ExtToWebviewMessag
     }
   } else if (msg.type === 'audio-chunk') {
     if (chunkAccumulator === null || chunksTotal !== msg.total) {
-      chunkTotalBytes = msg.totalBytes;
-      chunksTotal = msg.total;
+chunksTotal = msg.total;
       chunksReceived = 0;
       chunkAccumulator = new Uint8Array(msg.totalBytes);
     }
@@ -375,6 +378,7 @@ window.addEventListener('message', async (event: MessageEvent<ExtToWebviewMessag
     const oldConfig = config;
     config = msg.config;
     controls.updateKeybindings(config.keybindings);
+    updateSpectroLabel(config.spectrogram.useMel);
 
     if (samples) { drawWaveform(); }
 
@@ -400,6 +404,26 @@ window.addEventListener('message', async (event: MessageEvent<ExtToWebviewMessag
 
 vscode.postMessage({ type: 'ready' });
 
+// ---- Mel toggle ----
+function updateSpectroLabel(useMel: boolean): void {
+  spectroLabelEl.textContent = useMel ? 'Mel Spectrogram' : 'Linear Spectrogram';
+  melBtn.classList.toggle('active', useMel);
+  linearBtn.classList.toggle('active', !useMel);
+}
+
+function switchMode(newUseMel: boolean): void {
+  if (!config || config.spectrogram.useMel === newUseMel) { return; }
+  config.spectrogram.useMel = newUseMel;
+  updateSpectroLabel(newUseMel);
+  vscode.postMessage({ type: 'update-use-mel', value: newUseMel });
+  if (samples && metadata) {
+    void computeSpectro(config.mel, metadata.sampleRate, newUseMel);
+  }
+}
+
+melBtn.addEventListener('click', () => switchMode(true));
+linearBtn.addEventListener('click', () => switchMode(false));
+
 // ---- Helpers ----
 function setStatus(msg: string): void {
   statusEl.textContent = msg;
@@ -424,7 +448,13 @@ function buildLayout(): string {
     <canvas id="waveform-canvas" class="waveform-canvas" height="120"></canvas>
   </div>
   <div id="spectrogram-wrap" class="section">
-    <div class="section-label">Mel Spectrogram</div>
+    <div class="section-header">
+      <div id="spectrogram-label" class="section-label">Spectrogram</div>
+      <div class="spectro-mode-switch">
+        <button id="mel-btn" class="mode-btn">Mel</button>
+        <button id="linear-btn" class="mode-btn">Linear</button>
+      </div>
+    </div>
     <div class="canvas-wrap spectrogram-wrap-inner">
       <canvas id="spectrogram-canvas" class="spectrogram-canvas"></canvas>
     </div>
@@ -450,6 +480,15 @@ function buildLayout(): string {
   .time-display { margin-left: 8px; color: #4fc3f7; font-family: monospace; font-size: 12px; }
   .region-display { margin-left: 12px; color: #80cbc4; font-family: monospace; font-size: 12px; border-left: 1px solid #444; padding-left: 12px; }
   .section-label { color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 0 4px; }
+  .section-header { display: flex; align-items: center; gap: 8px; }
+  .spectro-mode-switch { display: flex; gap: 0; }
+  .mode-btn {
+    background: none; border: none; color: #555; font-size: 11px;
+    padding: 8px 6px 4px; cursor: pointer; font-family: inherit; letter-spacing: 0.3px; line-height: 1;
+  }
+  .mode-btn:hover { color: #999; }
+  .mode-btn.active { color: #ccc; font-weight: bold; cursor: default; }
+  .mode-btn + .mode-btn { border-left: 1px solid #444; }
   .section { display: flex; flex-direction: column; }
   .canvas-wrap { width: 100%; overflow: hidden; background: #1e1e1e; border: 1px solid #333; border-radius: 3px; }
   .waveform-canvas { width: 100%; height: 120px; display: block; cursor: crosshair; }
