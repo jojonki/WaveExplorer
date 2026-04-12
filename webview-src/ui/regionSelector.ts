@@ -14,7 +14,8 @@ export function attachRegionSelector(
   onRegion: (r: RegionEvent) => void,
   onClear: () => void,
   leftPad = 0,
-  rightPad = 0
+  rightPad = 0,
+  getView?: () => { start: number; end: number }
 ): () => void {
   let isDragging = false;
   let dragStartX = 0;
@@ -23,7 +24,12 @@ export function attachRegionSelector(
     const duration = getDuration();
     if (duration <= 0) { return 0; }
     const drawW = canvas.clientWidth - leftPad - rightPad;
-    return Math.max(0, Math.min(1, (x - leftPad) / drawW)) * duration;
+    const frac = Math.max(0, Math.min(1, (x - leftPad) / drawW));
+    if (getView) {
+      const view = getView();
+      return view.start + frac * (view.end - view.start);
+    }
+    return frac * duration;
   }
 
   function onMouseDown(e: MouseEvent): void {

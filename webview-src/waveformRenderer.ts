@@ -14,10 +14,16 @@ export function renderWaveform(
   duration: number,
   color: string,
   region: Region | null,
-  playheadS: number | null
+  playheadS: number | null,
+  viewStart = 0,
+  viewEnd?: number
 ): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) { return; }
+
+  const vs = viewStart;
+  const ve = viewEnd ?? duration;
+  const viewSpan = ve - vs;
 
   const dpr = window.devicePixelRatio || 1;
   const W = canvas.width;
@@ -35,7 +41,7 @@ export function renderWaveform(
   ctx.fillStyle = '#1e1e1e';
   ctx.fillRect(0, 0, W, H);
 
-  if (samples.length === 0 || drawW <= 0 || drawH <= 0) { return; }
+  if (samples.length === 0 || drawW <= 0 || drawH <= 0 || viewSpan <= 0) { return; }
 
   // ---- Y-axis (amplitude) ----
   // Major ticks every 0.5, minor ticks every 0.25
@@ -63,12 +69,12 @@ export function renderWaveform(
   }
 
   // ---- X-axis (time) ----
-  const { major: timeMajor, minor: timeMinor } = niceTimeTicks(duration);
+  const { major: timeMajor, minor: timeMinor } = niceTimeTicks(vs, ve);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
   for (const t of timeMinor) {
-    const x = x0 + (t / duration) * drawW;
+    const x = x0 + ((t - vs) / viewSpan) * drawW;
     ctx.strokeStyle = '#252525';
     ctx.lineWidth = dpr;
     ctx.setLineDash([2 * dpr, 4 * dpr]);
@@ -80,7 +86,7 @@ export function renderWaveform(
   }
 
   for (const t of timeMajor) {
-    const x = x0 + (t / duration) * drawW;
+    const x = x0 + ((t - vs) / viewSpan) * drawW;
     ctx.strokeStyle = '#2c2c2c';
     ctx.lineWidth = dpr;
     ctx.beginPath();
@@ -102,31 +108,47 @@ export function renderWaveform(
 
   // Region highlight
   if (region) {
-    const rx0 = x0 + (region.startS / duration) * drawW;
-    const rx1 = x0 + (region.endS / duration) * drawW;
-    ctx.fillStyle = 'rgba(79, 195, 247, 0.15)';
-    ctx.fillRect(rx0, y0, rx1 - rx0, drawH);
-    ctx.strokeStyle = 'rgba(79, 195, 247, 0.6)';
-    ctx.lineWidth = dpr;
-    ctx.beginPath();
-    ctx.moveTo(rx0 + 0.5, y0);
-    ctx.lineTo(rx0 + 0.5, y0 + drawH);
-    ctx.moveTo(rx1 + 0.5, y0);
-    ctx.lineTo(rx1 + 0.5, y0 + drawH);
-    ctx.stroke();
+    const rx0 = x0 + ((region.startS - vs) / viewSpan) * drawW;
+    const rx1 = x0 + ((region.endS - vs) / viewSpan) * drawW;
+    const clampedRx0 = Math.max(x0, rx0);
+    const clampedRx1 = Math.min(x0 + drawW, rx1);
+    if (clampedRx1 > clampedRx0) {
+      ctx.fillStyle = 'rgba(79, 195, 247, 0.15)';
+      ctx.fillRect(clampedRx0, y0, clampedRx1 - clampedRx0, drawH);
+      if (rx0 >= x0 && rx0 <= x0 + drawW) {
+        ctx.strokeStyle = 'rgba(79, 195, 247, 0.6)';
+        ctx.lineWidth = dpr;
+        ctx.beginPath();
+        ctx.moveTo(rx0 + 0.5, y0);
+        ctx.lineTo(rx0 + 0.5, y0 + drawH);
+        ctx.stroke();
+      }
+      if (rx1 >= x0 && rx1 <= x0 + drawW) {
+        ctx.strokeStyle = 'rgba(79, 195, 247, 0.6)';
+        ctx.lineWidth = dpr;
+        ctx.beginPath();
+        ctx.moveTo(rx1 + 0.5, y0);
+        ctx.lineTo(rx1 + 0.5, y0 + drawH);
+        ctx.stroke();
+      }
+    }
   }
 
-  // Waveform envelope (min/max per pixel column)
-  const samplesPerPixel = samples.length / drawW;
+  // Waveform envelope (min/max per pixel column) within view range
+  const startSample = Math.floor((vs / duration) * samples.length);
+  const endSample = Math.ceil((ve / duration) * samples.length);
+  const visibleSamples = Math.max(1, endSample - startSample);
+  const samplesPerPixel = visibleSamples / drawW;
+
   ctx.strokeStyle = color;
   ctx.lineWidth = dpr;
 
-  for (let px = 0; px < drawW; px++) {
-    const startIdx = Math.floor(px * samplesPerPixel);
-    const endIdx = Math.min(Math.ceil((px + 1) * samplesPerPixel), samples.length);
+  for (let px = 0; px < Math.floor(drawW); px++) {
+    const si = startSample + Math.floor(px * samplesPerPixel);
+    const ei = Math.min(startSample + Math.ceil((px + 1) * samplesPerPixel), endSample);
     let min = 1.0;
     let max = -1.0;
-    for (let i = startIdx; i < endIdx; i++) {
+    for (let i = si; i < ei; i++) {
       const v = samples[i];
       if (v < min) { min = v; }
       if (v > max) { max = v; }
@@ -145,29 +167,32 @@ export function renderWaveform(
   }
 
   // Playhead
-  if (playheadS !== null && duration > 0) {
-    const px = x0 + (playheadS / duration) * drawW;
-    ctx.strokeStyle = '#f44336';
-    ctx.lineWidth = 1.5 * dpr;
-    ctx.beginPath();
-    ctx.moveTo(px + 0.5, y0);
-    ctx.lineTo(px + 0.5, y0 + drawH);
-    ctx.stroke();
+  if (playheadS !== null && viewSpan > 0) {
+    const px = x0 + ((playheadS - vs) / viewSpan) * drawW;
+    if (px >= x0 && px <= x0 + drawW) {
+      ctx.strokeStyle = '#f44336';
+      ctx.lineWidth = 1.5 * dpr;
+      ctx.beginPath();
+      ctx.moveTo(px + 0.5, y0);
+      ctx.lineTo(px + 0.5, y0 + drawH);
+      ctx.stroke();
+    }
   }
 }
 
-function niceTimeTicks(duration: number): { major: number[]; minor: number[] } {
-  // Pick major step targeting ~8 labels, minor step = major/4
-  const majorSteps = [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300];
-  const majorStep = majorSteps.find(s => duration / s <= 8) ?? 300;
+function niceTimeTicks(viewStart: number, viewEnd: number): { major: number[]; minor: number[] } {
+  const viewSpan = viewEnd - viewStart;
+  const majorSteps = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300];
+  const majorStep = majorSteps.find(s => viewSpan / s <= 8) ?? 300;
   const minorStep = majorStep / 4;
 
   const major: number[] = [];
   const minor: number[] = [];
   const eps = minorStep * 0.01;
 
-  for (let t = minorStep; t < duration - eps; t += minorStep) {
-    const rounded = parseFloat(t.toFixed(8));
+  const firstT = Math.ceil(viewStart / minorStep) * minorStep;
+  for (let t = firstT; t < viewEnd - eps; t += minorStep) {
+    const rounded = parseFloat(t.toFixed(10));
     const isMajor = Math.abs(rounded % majorStep) < eps || Math.abs(rounded % majorStep - majorStep) < eps;
     if (isMajor) {
       major.push(rounded);
@@ -179,8 +204,13 @@ function niceTimeTicks(duration: number): { major: number[]; minor: number[] } {
 }
 
 function formatTime(s: number): string {
-  if (s < 60) { return `${s % 1 === 0 ? s : s.toFixed(s < 1 ? 2 : 1)}s`; }
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${m}:${sec.toString().padStart(2, '0')}`;
+  if (s >= 60) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${String(Math.round(sec)).padStart(2, '0')}`;
+  }
+  if (s < 0.1) { return `${(s * 1000).toFixed(1)}ms`; }
+  if (s < 1) { return `${(s * 1000).toFixed(0)}ms`; }
+  if (s < 10) { return `${s.toFixed(2)}s`; }
+  return `${s.toFixed(1)}s`;
 }

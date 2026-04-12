@@ -30,9 +30,16 @@ export function renderSpectrogram(
   fMax: number,
   useMel: boolean,
   region: SpectroRegion | null = null,
-  playheadS: number | null = null
+  playheadS: number | null = null,
+  viewStart = 0,
+  viewEnd?: number
 ): void {
   if (nFrames === 0 || nFreqBins === 0) { return; }
+
+  const vs = viewStart;
+  const ve = viewEnd ?? duration;
+  const viewSpan = ve - vs;
+  if (viewSpan <= 0) { return; }
 
   const dpr = window.devicePixelRatio || 1;
 
@@ -91,9 +98,11 @@ export function renderSpectrogram(
   }
   offCtx.putImageData(imageData, 0, 0);
 
-  // Scale-draw onto main canvas
+  // Scale-draw onto main canvas (crop to view range)
+  const srcX = (vs / duration) * nFrames;
+  const srcW = Math.max(1, (viewSpan / duration) * nFrames);
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(offscreen, x0, y0, drawW, drawH);
+  ctx.drawImage(offscreen, srcX, 0, srcW, nFreqBins, x0, y0, drawW, drawH);
 
   // ---- Y-axis (frequency in Hz) ----
   const melMin = hzToMel(fMin === 0 ? 20 : fMin);
@@ -140,12 +149,12 @@ export function renderSpectrogram(
   }
 
   // ---- X-axis (time) ----
-  const { major: timeMajor, minor: timeMinor } = niceTimeTicks(duration);
+  const { major: timeMajor, minor: timeMinor } = niceTimeTicks(vs, ve);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
   for (const t of timeMinor) {
-    const x = x0 + (t / duration) * drawW;
+    const x = x0 + ((t - vs) / viewSpan) * drawW;
     ctx.strokeStyle = 'rgba(255,255,255,0.06)';
     ctx.lineWidth = dpr;
     ctx.setLineDash([2 * dpr, 4 * dpr]);
@@ -157,7 +166,7 @@ export function renderSpectrogram(
   }
 
   for (const t of timeMajor) {
-    const x = x0 + (t / duration) * drawW;
+    const x = x0 + ((t - vs) / viewSpan) * drawW;
     ctx.strokeStyle = 'rgba(255,255,255,0.14)';
     ctx.lineWidth = dpr;
     ctx.beginPath();
@@ -178,28 +187,38 @@ export function renderSpectrogram(
   ctx.stroke();
 
   // Region overlay
-  if (region && duration > 0) {
-    const rx0 = x0 + (region.startS / duration) * drawW;
-    const rx1 = x0 + (region.endS / duration) * drawW;
-    ctx.fillStyle = 'rgba(79, 195, 247, 0.15)';
-    ctx.fillRect(rx0, y0, rx1 - rx0, drawH);
-    ctx.strokeStyle = 'rgba(79, 195, 247, 0.6)';
-    ctx.lineWidth = dpr;
-    ctx.beginPath();
-    ctx.moveTo(rx0 + 0.5, y0); ctx.lineTo(rx0 + 0.5, y0 + drawH);
-    ctx.moveTo(rx1 + 0.5, y0); ctx.lineTo(rx1 + 0.5, y0 + drawH);
-    ctx.stroke();
+  if (region) {
+    const rx0 = x0 + ((region.startS - vs) / viewSpan) * drawW;
+    const rx1 = x0 + ((region.endS - vs) / viewSpan) * drawW;
+    const clampedRx0 = Math.max(x0, rx0);
+    const clampedRx1 = Math.min(x0 + drawW, rx1);
+    if (clampedRx1 > clampedRx0) {
+      ctx.fillStyle = 'rgba(79, 195, 247, 0.15)';
+      ctx.fillRect(clampedRx0, y0, clampedRx1 - clampedRx0, drawH);
+      ctx.strokeStyle = 'rgba(79, 195, 247, 0.6)';
+      ctx.lineWidth = dpr;
+      ctx.beginPath();
+      if (rx0 >= x0 && rx0 <= x0 + drawW) {
+        ctx.moveTo(rx0 + 0.5, y0); ctx.lineTo(rx0 + 0.5, y0 + drawH);
+      }
+      if (rx1 >= x0 && rx1 <= x0 + drawW) {
+        ctx.moveTo(rx1 + 0.5, y0); ctx.lineTo(rx1 + 0.5, y0 + drawH);
+      }
+      ctx.stroke();
+    }
   }
 
   // Playhead
-  if (playheadS !== null && duration > 0) {
-    const px = x0 + (playheadS / duration) * drawW;
-    ctx.strokeStyle = '#f44336';
-    ctx.lineWidth = 1.5 * dpr;
-    ctx.beginPath();
-    ctx.moveTo(px + 0.5, y0);
-    ctx.lineTo(px + 0.5, y0 + drawH);
-    ctx.stroke();
+  if (playheadS !== null) {
+    const px = x0 + ((playheadS - vs) / viewSpan) * drawW;
+    if (px >= x0 && px <= x0 + drawW) {
+      ctx.strokeStyle = '#f44336';
+      ctx.lineWidth = 1.5 * dpr;
+      ctx.beginPath();
+      ctx.moveTo(px + 0.5, y0);
+      ctx.lineTo(px + 0.5, y0 + drawH);
+      ctx.stroke();
+    }
   }
 }
 
@@ -247,17 +266,19 @@ function formatHz(hz: number): string {
   return `${hz}`;
 }
 
-function niceTimeTicks(duration: number): { major: number[]; minor: number[] } {
-  const majorSteps = [0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300];
-  const majorStep = majorSteps.find(s => duration / s <= 8) ?? 300;
+function niceTimeTicks(viewStart: number, viewEnd: number): { major: number[]; minor: number[] } {
+  const viewSpan = viewEnd - viewStart;
+  const majorSteps = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300];
+  const majorStep = majorSteps.find(s => viewSpan / s <= 8) ?? 300;
   const minorStep = majorStep / 4;
 
   const major: number[] = [];
   const minor: number[] = [];
   const eps = minorStep * 0.01;
 
-  for (let t = minorStep; t < duration - eps; t += minorStep) {
-    const rounded = parseFloat(t.toFixed(8));
+  const firstT = Math.ceil(viewStart / minorStep) * minorStep;
+  for (let t = firstT; t < viewEnd - eps; t += minorStep) {
+    const rounded = parseFloat(t.toFixed(10));
     const isMajor = Math.abs(rounded % majorStep) < eps || Math.abs(rounded % majorStep - majorStep) < eps;
     if (isMajor) {
       major.push(rounded);
@@ -269,8 +290,13 @@ function niceTimeTicks(duration: number): { major: number[]; minor: number[] } {
 }
 
 function formatTime(s: number): string {
-  if (s < 60) { return `${s % 1 === 0 ? s : s.toFixed(s < 1 ? 2 : 1)}s`; }
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${m}:${sec.toString().padStart(2, '0')}`;
+  if (s >= 60) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${String(Math.round(sec)).padStart(2, '0')}`;
+  }
+  if (s < 0.1) { return `${(s * 1000).toFixed(1)}ms`; }
+  if (s < 1) { return `${(s * 1000).toFixed(0)}ms`; }
+  if (s < 10) { return `${s.toFixed(2)}s`; }
+  return `${s.toFixed(1)}s`;
 }

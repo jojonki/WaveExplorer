@@ -17,6 +17,75 @@ let config: VisConfig | null = null;
 let metadata: WavMetadata | null = null;
 let samples: Float32Array | null = null;
 
+// ---- View (zoom) state ----
+let viewStart = 0;
+let viewEnd = 0;
+
+function initView(): void {
+  viewStart = 0;
+  viewEnd = engine.duration;
+}
+
+function applyView(vs: number, ve: number): void {
+  const dur = engine.duration;
+  if (dur <= 0) { return; }
+  const MIN_SPAN = Math.min(0.005, dur);
+  const span = Math.max(MIN_SPAN, ve - vs);
+  if (span >= dur) { viewStart = 0; viewEnd = dur; return; }
+  let s = vs;
+  let e = s + span;
+  if (s < 0) { s = 0; e = span; }
+  if (e > dur) { e = dur; s = dur - span; }
+  viewStart = s;
+  viewEnd = e;
+}
+
+function resetView(): void {
+  viewStart = 0;
+  viewEnd = engine.duration;
+  updateZoomStatus();
+  drawWaveform();
+  drawSpectrogram();
+}
+
+function zoomAtTime(centerTime: number, factor: number): void {
+  if (engine.duration <= 0) { return; }
+  const span = viewEnd - viewStart;
+  const ratio = (centerTime - viewStart) / span;
+  const newSpan = span * factor;
+  applyView(centerTime - ratio * newSpan, centerTime - ratio * newSpan + newSpan);
+  updateZoomStatus();
+  drawWaveform();
+  drawSpectrogram();
+}
+
+function panBy(deltaTime: number): void {
+  if (engine.duration <= 0) { return; }
+  const span = viewEnd - viewStart;
+  applyView(viewStart + deltaTime, viewStart + deltaTime + span);
+  updateZoomStatus();
+  drawWaveform();
+  drawSpectrogram();
+}
+
+function canvasOffsetToTime(canvas: HTMLCanvasElement, offsetX: number): number {
+  const drawW = canvas.clientWidth - AXIS_L - AXIS_R;
+  const frac = Math.max(0, Math.min(1, (offsetX - AXIS_L) / drawW));
+  return viewStart + frac * (viewEnd - viewStart);
+}
+
+function updateZoomStatus(): void {
+  const zoomEl = document.getElementById('zoom-status');
+  if (!zoomEl) { return; }
+  const dur = engine.duration;
+  if (dur <= 0 || (viewStart === 0 && viewEnd >= dur - 0.0001)) {
+    zoomEl.textContent = '';
+  } else {
+    const ratio = dur / (viewEnd - viewStart);
+    zoomEl.textContent = `${ratio.toFixed(1)}×`;
+  }
+}
+
 // Spectrogram state (mel or linear STFT)
 let spectroData: Float32Array | null = null;
 let spectroNFrames = 0;
@@ -47,6 +116,8 @@ const melBtn          = document.getElementById('mel-btn') as HTMLButtonElement;
 const linearBtn       = document.getElementById('linear-btn') as HTMLButtonElement;
 
 const controls = new Controls(controlsEl, engine, { play: 'Space', pause: 'p', stop: 's', loop: 'l' });
+
+document.getElementById('zoom-reset-btn')!.addEventListener('click', () => resetView());
 
 const regionDisplay = document.createElement('span');
 regionDisplay.className = 'region-display';
@@ -93,7 +164,8 @@ attachRegionSelector(
     drawSpectrogram();
   },
   AXIS_L,
-  AXIS_R
+  AXIS_R,
+  () => ({ start: viewStart, end: viewEnd })
 );
 
 // Region selector (spectrogram)
@@ -115,8 +187,42 @@ attachRegionSelector(
     drawSpectrogram();
   },
   AXIS_L,
-  AXIS_R
+  AXIS_R,
+  () => ({ start: viewStart, end: viewEnd })
 );
+
+// ---- Zoom wheel + keyboard ----
+function attachZoomHandlers(canvas: HTMLCanvasElement): void {
+  canvas.addEventListener('wheel', (e: WheelEvent) => {
+    e.preventDefault();
+    if (engine.duration <= 0) { return; }
+    if (e.shiftKey) {
+      const span = viewEnd - viewStart;
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+      panBy(delta > 0 ? span * 0.2 : span * -0.2);
+    } else {
+      const center = canvasOffsetToTime(canvas, e.offsetX);
+      zoomAtTime(center, e.deltaY > 0 ? 1.3 : 1 / 1.3);
+    }
+  }, { passive: false });
+}
+attachZoomHandlers(waveformEl);
+attachZoomHandlers(spectroEl);
+
+window.addEventListener('keydown', (e: KeyboardEvent) => {
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) { return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) { return; }
+  if (e.key === '=' || e.key === '+') {
+    e.preventDefault();
+    zoomAtTime((viewStart + viewEnd) / 2, 1 / 1.5);
+  } else if (e.key === '-') {
+    e.preventDefault();
+    zoomAtTime((viewStart + viewEnd) / 2, 1.5);
+  } else if (e.key === '0') {
+    e.preventDefault();
+    resetView();
+  }
+});
 
 // Playhead animation — chain onto the Controls callback already registered
 let rafId: number | null = null;
@@ -173,7 +279,9 @@ function drawWaveform(): void {
     metadata.durationSeconds,
     config.waveform.color,
     currentRegion,
-    engine.state === 'stopped' ? null : engine.getCurrentTime()
+    engine.state === 'stopped' ? null : engine.getCurrentTime(),
+    viewStart,
+    viewEnd || metadata.durationSeconds
   );
 }
 
@@ -188,7 +296,9 @@ function drawSpectrogram(): void {
     fMax,
     config.spectrogram.useMel,
     currentRegion,
-    engine.state === 'stopped' ? null : engine.getCurrentTime()
+    engine.state === 'stopped' ? null : engine.getCurrentTime(),
+    viewStart,
+    viewEnd || metadata.durationSeconds
   );
 }
 
@@ -321,6 +431,8 @@ async function loadAudio(base64: string): Promise<void> {
     }
 
     engine.loadBuffer(buf);
+    initView();
+    updateZoomStatus();
 
     resizeCanvases();
     drawWaveform();
@@ -443,6 +555,11 @@ function buildLayout(): string {
   return `
 <div class="vis-audio-root">
   <div id="controls-bar" class="controls-bar"></div>
+  <div class="zoom-bar">
+    <span class="zoom-hint">Scroll: zoom &nbsp;|&nbsp; Shift+Scroll: pan &nbsp;|&nbsp; +/− keys</span>
+    <span id="zoom-status" class="zoom-status"></span>
+    <button id="zoom-reset-btn" class="zoom-btn" title="Reset to full view (0)">Fit</button>
+  </div>
   <div class="section-label">Waveform</div>
   <div class="canvas-wrap">
     <canvas id="waveform-canvas" class="waveform-canvas" height="120"></canvas>
@@ -479,6 +596,14 @@ function buildLayout(): string {
   .control-btn.active { background: #1a6496; border-color: #4fc3f7; color: #fff; }
   .time-display { margin-left: 8px; color: #4fc3f7; font-family: monospace; font-size: 12px; }
   .region-display { margin-left: 12px; color: #80cbc4; font-family: monospace; font-size: 12px; border-left: 1px solid #444; padding-left: 12px; }
+  .zoom-bar { display: flex; align-items: center; gap: 6px; padding: 2px 0 4px; }
+  .zoom-hint { color: #555; font-size: 11px; }
+  .zoom-status { color: #4fc3f7; font-size: 11px; font-family: monospace; min-width: 32px; }
+  .zoom-btn {
+    background: #2d2d2d; color: #aaa; border: 1px solid #444; border-radius: 3px;
+    padding: 2px 8px; cursor: pointer; font-size: 11px;
+  }
+  .zoom-btn:hover { background: #3a3a3a; color: #ccc; }
   .section-label { color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 0 4px; }
   .section-header { display: flex; align-items: center; gap: 8px; }
   .spectro-mode-switch { display: flex; gap: 0; }
