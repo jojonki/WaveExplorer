@@ -48,6 +48,15 @@ function resetView(): void {
   drawSpectrogram();
 }
 
+function zoomToRegion(): void {
+  if (!currentRegion) { return; }
+  viewStart = currentRegion.startS;
+  viewEnd = currentRegion.endS;
+  updateZoomStatus();
+  drawWaveform();
+  drawSpectrogram();
+}
+
 function zoomAtTime(centerTime: number, factor: number): void {
   if (engine.duration <= 0) { return; }
   const span = viewEnd - viewStart;
@@ -221,6 +230,9 @@ window.addEventListener('keydown', (e: KeyboardEvent) => {
   } else if (e.key === '0') {
     e.preventDefault();
     resetView();
+  } else if (e.key === 'f' || e.key === 'F') {
+    e.preventDefault();
+    zoomToRegion();
   }
 });
 
