@@ -49,9 +49,10 @@ export type WorkerInMessage = {
   samples: Float32Array;
   config: MelConfig;
   sampleRate: number;
+  useMel: boolean;
 };
 
 export type WorkerOutMessage =
-  | { type: 'result'; data: Float32Array; nFrames: number; nMels: number }
+  | { type: 'result'; data: Float32Array; nFrames: number; nBins: number }
   | { type: 'progress'; percent: number };
 

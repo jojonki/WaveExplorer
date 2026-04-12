@@ -154,7 +154,8 @@ export class WavEditorProvider implements vscode.CustomReadonlyEditorProvider {
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none';
                  script-src 'nonce-${nonce}' ${webview.cspSource};
-                 worker-src ${webview.cspSource};
+                 worker-src blob:;
+                 connect-src ${webview.cspSource};
                  style-src 'unsafe-inline';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WAV Visualizer</title>

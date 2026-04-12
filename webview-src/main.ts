@@ -1,15 +1,14 @@
-import { ExtToWebviewMessage, VisConfig, WavMetadata, MelConfig } from './types-webview';
+import { ExtToWebviewMessage, VisConfig, WavMetadata, MelConfig, WorkerInMessage, WorkerOutMessage } from './types-webview';
 import { AudioEngine } from './audioEngine';
 import { renderWaveform, Region } from './waveformRenderer';
 import { renderSpectrogram } from './spectrogramRenderer';
 import { attachRegionSelector } from './ui/regionSelector';
 import { Controls } from './ui/controls';
 import { renderMetadata } from './ui/metadataPanel';
-import { stft, makeWindow } from './dsp/stft';
-import { buildMelFilterbank, applyMelFilterbank } from './dsp/melFilterbank';
 
 declare const window: Window & {
   acquireVsCodeApi: () => { postMessage: (msg: unknown) => void };
+  WORKER_URL: string;
 };
 
 // ---- State ----
@@ -22,6 +21,10 @@ let samples: Float32Array | null = null;
 let spectroData: Float32Array | null = null;
 let spectroNFrames = 0;
 let spectroNBins = 0; // nMels when useMel=true, nFFT/2+1 when useMel=false
+
+// Worker state
+let melWorker: Worker | null = null;
+let melWorkerReject: ((e: Error) => void) | null = null;
 
 // Chunked audio assembly
 let chunkAccumulator: Uint8Array | null = null;
@@ -186,39 +189,107 @@ function drawSpectrogram(): void {
   );
 }
 
-// ---- Spectrogram computation (inline, no worker) ----
+// ---- Spectrogram loading indicator ----
+function drawComputingIndicator(percent: number): void {
+  const canvas = spectroEl;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) { return; }
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.round(canvas.clientWidth * dpr);
+  const h = Math.round(canvas.clientHeight * dpr);
+  if (w <= 0 || h <= 0) { return; }
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+  }
+  ctx.clearRect(0, 0, w, h);
+
+  const label = `Computing... ${percent}%`;
+  const barW = Math.round(w * 0.5);
+  const barH = Math.round(h * 0.04);
+  const barX = Math.round((w - barW) / 2);
+  const barY = Math.round(h / 2) - Math.round(barH / 2);
+
+  ctx.fillStyle = '#2a2a2a';
+  ctx.fillRect(barX, barY, barW, barH);
+  ctx.fillStyle = '#4fc3f7';
+  ctx.fillRect(barX, barY, Math.round(barW * percent / 100), barH);
+
+  ctx.font = `${Math.round(11 * dpr)}px monospace`;
+  ctx.fillStyle = '#aaa';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(label, w / 2, barY - Math.round(4 * dpr));
+}
+
+// ---- Spectrogram computation (via Worker) ----
 async function computeSpectro(mel: MelConfig, sr: number, useMel: boolean): Promise<void> {
   if (!samples) { return; }
+
+  // 前回の計算をキャンセル
+  if (melWorker) {
+    melWorker.terminate();
+    melWorker = null;
+    melWorkerReject?.(new Error('cancelled'));
+    melWorkerReject = null;
+  }
+
+  spectroWrap.style.display = '';
+  drawComputingIndicator(0);
   setStatus(useMel ? 'Computing mel spectrogram...' : 'Computing spectrogram...');
-  await new Promise<void>(resolve => setTimeout(resolve, 0)); // yield to UI
 
   try {
-    const { nFFT, hopLength, nMels, fMin, windowType } = mel;
-    const fMax = mel.fMax ?? sr / 2;
-
-    const win = makeWindow(windowType, nFFT);
-    const { data: stftData, nFrames, nBins } = stft(samples, nFFT, hopLength, win);
-
-    if (useMel) {
-      const filterbank = buildMelFilterbank(nMels, nFFT, sr, fMin, fMax);
-      spectroData = applyMelFilterbank(stftData, nFrames, nBins, filterbank, nMels);
-      spectroNBins = nMels;
-    } else {
-      // Log-magnitude STFT (linear frequency)
-      const logData = new Float32Array(stftData.length);
-      for (let i = 0; i < stftData.length; i++) {
-        logData[i] = Math.log(stftData[i] * stftData[i] + 1e-9);
-      }
-      spectroData = logData;
-      spectroNBins = nBins;
-    }
-    spectroNFrames = nFrames;
-    drawSpectrogram();
-    spectroWrap.style.display = '';
-    setStatus('');
+    const res = await fetch(window.WORKER_URL);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    melWorker = new Worker(blobUrl);
+    URL.revokeObjectURL(blobUrl);
   } catch (err) {
-    setStatus(`Spectrogram error: ${err}`);
+    const msg = `Worker creation failed: ${err}`;
+    console.error('[vis-audio]', msg, 'WORKER_URL=', window.WORKER_URL);
+    setStatus(msg);
+    return;
   }
+
+  const worker = melWorker;
+  return new Promise<void>((resolve, reject) => {
+    melWorkerReject = reject;
+
+    worker.onmessage = (e: MessageEvent<WorkerOutMessage>) => {
+      const msg = e.data;
+      if (msg.type === 'progress') {
+        drawComputingIndicator(msg.percent);
+        setStatus(`Computing... ${msg.percent}%`);
+      } else if (msg.type === 'result') {
+        spectroData = msg.data;
+        spectroNFrames = msg.nFrames;
+        spectroNBins = msg.nBins;
+        drawSpectrogram();
+        setStatus('');
+        melWorker = null;
+        melWorkerReject = null;
+        resolve();
+      }
+    };
+
+    worker.onerror = (e) => {
+      const errMsg = `Spectrogram error: ${e.message || '(no message)'}`;
+      console.error('[vis-audio] Worker error:', e);
+      setStatus(errMsg);
+      melWorker = null;
+      melWorkerReject = null;
+      reject(new Error(errMsg));
+    };
+
+    const samplesForWorker = samples!.slice();
+    worker.postMessage({
+      type: 'compute',
+      samples: samplesForWorker,
+      config: mel,
+      sampleRate: sr,
+      useMel,
+    } satisfies WorkerInMessage, [samplesForWorker.buffer]);
+  });
 }
 
 // ---- Audio loading ----
