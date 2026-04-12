@@ -32,15 +32,24 @@ function getChannelLabel(n: number): string {
 export function renderMetadata(container: HTMLElement, meta: WavMetadata): void {
   container.innerHTML = '';
 
+  const isWav = !meta.container || meta.container === 'wav';
   const rows: [string, string][] = [
-    ['Sample Rate',  `${meta.sampleRate.toLocaleString()} Hz`],
-    ['Channels',     getChannelLabel(meta.numChannels)],
-    ['Bit Depth',    `${meta.bitsPerSample} bit`],
-    ['Format',       getFormatName(meta.audioFormat)],
-    ['Encoding',     meta.encoding],
-    ['Duration',     formatDuration(meta.durationSeconds)],
-    ['Byte Rate',    `${(meta.byteRate / 1000).toFixed(1)} kB/s`],
-    ['Block Align',  `${meta.blockAlign} bytes`],
+    ['Sample Rate',  meta.sampleRate > 0 ? `${meta.sampleRate.toLocaleString()} Hz` : '—'],
+    ['Channels',     meta.numChannels > 0 ? getChannelLabel(meta.numChannels) : '—'],
+    ...(isWav ? [
+      ['Bit Depth',   `${meta.bitsPerSample} bit`] as [string, string],
+      ['Format',      getFormatName(meta.audioFormat)] as [string, string],
+      ['Encoding',    meta.encoding] as [string, string],
+    ] : [
+      ['Format',      meta.encoding] as [string, string],
+    ]),
+    ['Duration',     meta.durationSeconds > 0 ? formatDuration(meta.durationSeconds) : '—'],
+    ...(isWav ? [
+      ['Byte Rate',   `${(meta.byteRate / 1000).toFixed(1)} kB/s`] as [string, string],
+      ['Block Align', `${meta.blockAlign} bytes`] as [string, string],
+    ] : [
+      ...(meta.bitrate != null ? [['Bitrate', `${meta.bitrate} kbps`] as [string, string]] : []),
+    ]),
     ['File Size',    formatBytes(meta.fileSizeBytes)],
   ];
 

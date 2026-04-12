@@ -306,6 +306,17 @@ async function loadAudio(base64: string): Promise<void> {
     samples = new Float32Array(buf.getChannelData(0));
     await ctx.close();
 
+    // Update metadata with values from the decoded AudioBuffer (needed for non-WAV formats).
+    if (metadata) {
+      metadata.sampleRate = buf.sampleRate;
+      metadata.numChannels = buf.numberOfChannels;
+      metadata.durationSeconds = buf.duration;
+      if (buf.duration > 0) {
+        metadata.bitrate = Math.round((metadata.fileSizeBytes * 8) / (buf.duration * 1000));
+      }
+      renderMetadata(metaEl, metadata);
+    }
+
     engine.loadBuffer(buf);
 
     resizeCanvases();

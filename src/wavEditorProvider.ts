@@ -91,12 +91,29 @@ export class WavEditorProvider implements vscode.CustomReadonlyEditorProvider {
     }
 
     const buf = Buffer.from(fileData);
+    const ext = uri.fsPath.split('.').pop()?.toLowerCase() ?? '';
     let metadata;
-    try {
-      metadata = parseWav(buf);
-    } catch (err) {
-      await webview.postMessage({ type: 'error', message: `Cannot parse WAV: ${err}` });
-      return;
+    if (ext === 'wav') {
+      try {
+        metadata = parseWav(buf);
+      } catch (err) {
+        await webview.postMessage({ type: 'error', message: `Cannot parse WAV: ${err}` });
+        return;
+      }
+    } else {
+      // For non-WAV formats, provide stub metadata; the webview will update it after decoding.
+      metadata = {
+        sampleRate: 0,
+        numChannels: 0,
+        bitsPerSample: 0,
+        audioFormat: 0,
+        byteRate: 0,
+        blockAlign: 0,
+        durationSeconds: 0,
+        fileSizeBytes: buf.length,
+        encoding: ext.toUpperCase(),
+        container: ext,
+      };
     }
 
     const config = getConfig(uri);

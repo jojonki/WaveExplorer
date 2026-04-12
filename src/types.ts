@@ -8,6 +8,7 @@ export interface WavMetadata {
   durationSeconds: number;
   fileSizeBytes: number;
   encoding: string;      // human-readable: "PCM 16-bit", "IEEE Float 32-bit", etc.
+  container?: string;    // file extension (e.g. "wav", "mp3"); wav-specific fields are N/A when not "wav"
 }
 
 export type ColormapName = 'viridis' | 'magma' | 'inferno' | 'plasma' | 'grayscale';

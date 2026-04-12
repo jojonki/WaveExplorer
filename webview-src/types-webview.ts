@@ -11,6 +11,8 @@ export interface WavMetadata {
   durationSeconds: number;
   fileSizeBytes: number;
   encoding: string;
+  container?: string;    // file extension (e.g. "wav", "mp3"); wav-specific fields are N/A when not "wav"
+  bitrate?: number;      // average bitrate in kbps (computed in webview after decoding)
 }
 
 export type ColormapName = 'viridis' | 'magma' | 'inferno' | 'plasma' | 'grayscale';

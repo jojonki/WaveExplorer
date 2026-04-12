@@ -1,7 +1,7 @@
 {
   "name": "vis-audio",
   "displayName": "vis-audio",
-  "description": "WAV file audio visualization with waveform and mel spectrogram",
+  "description": "Audio file visualization with waveform and mel spectrogram (WAV, MP3, OGG, FLAC, AAC, etc.)",
   "version": "0.1.0",
   "publisher": "vis-audio",
   "repository": {
@@ -19,10 +19,26 @@
     "customEditors": [
       {
         "viewType": "visAudio.wavEditor",
-        "displayName": "WAV Audio Visualizer",
+        "displayName": "Audio Visualizer",
         "selector": [
           { "filenamePattern": "*.wav" },
-          { "filenamePattern": "*.WAV" }
+          { "filenamePattern": "*.WAV" },
+          { "filenamePattern": "*.mp3" },
+          { "filenamePattern": "*.MP3" },
+          { "filenamePattern": "*.ogg" },
+          { "filenamePattern": "*.OGG" },
+          { "filenamePattern": "*.flac" },
+          { "filenamePattern": "*.FLAC" },
+          { "filenamePattern": "*.aac" },
+          { "filenamePattern": "*.AAC" },
+          { "filenamePattern": "*.m4a" },
+          { "filenamePattern": "*.M4A" },
+          { "filenamePattern": "*.aiff" },
+          { "filenamePattern": "*.AIFF" },
+          { "filenamePattern": "*.aif" },
+          { "filenamePattern": "*.AIF" },
+          { "filenamePattern": "*.opus" },
+          { "filenamePattern": "*.OPUS" }
         ],
         "priority": "default"
       }
