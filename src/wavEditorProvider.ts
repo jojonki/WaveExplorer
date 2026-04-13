@@ -55,6 +55,10 @@ export class WavEditorProvider implements vscode.CustomReadonlyEditorProvider {
           await vscode.workspace
             .getConfiguration('visAudio')
             .update('spectrogram.useMel', msg.value, vscode.ConfigurationTarget.Global);
+        } else if (msg.type === 'update-colormap') {
+          await vscode.workspace
+            .getConfiguration('visAudio')
+            .update('spectrogram.colormap', msg.value, vscode.ConfigurationTarget.Global);
         }
       },
       null,

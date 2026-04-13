@@ -49,7 +49,8 @@ export type ExtToWebviewMessage =
 export type WebviewToExtMessage =
   | { type: 'ready' }
   | { type: 'error'; message: string }
-  | { type: 'update-use-mel'; value: boolean };
+  | { type: 'update-use-mel'; value: boolean }
+  | { type: 'update-colormap'; value: ColormapName };
 
 export type WorkerInMessage = {
   type: 'compute';

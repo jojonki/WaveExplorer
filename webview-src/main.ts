@@ -1,4 +1,4 @@
-import { ExtToWebviewMessage, VisConfig, WavMetadata, MelConfig, WorkerInMessage, WorkerOutMessage } from './types-webview';
+import { ExtToWebviewMessage, VisConfig, WavMetadata, MelConfig, WorkerInMessage, WorkerOutMessage, ColormapName } from './types-webview';
 import { AudioEngine } from './audioEngine';
 import { renderWaveform, Region } from './waveformRenderer';
 import { renderSpectrogram } from './spectrogramRenderer';
@@ -123,6 +123,7 @@ const spectroWrap     = document.getElementById('spectrogram-wrap')!;
 const spectroLabelEl  = document.getElementById('spectrogram-label')!;
 const melBtn          = document.getElementById('mel-btn') as HTMLButtonElement;
 const linearBtn       = document.getElementById('linear-btn') as HTMLButtonElement;
+const colormapSelect  = document.getElementById('colormap-select') as HTMLSelectElement;
 
 const controls = new Controls(controlsEl, engine, { play: 'Space', pause: 'p', stop: 's', loop: 'l' });
 
@@ -465,6 +466,7 @@ window.addEventListener('message', async (event: MessageEvent<ExtToWebviewMessag
     metadata = msg.metadata;
     controls.updateKeybindings(config.keybindings);
     updateSpectroLabel(config.spectrogram.useMel);
+    syncColormapSelect(config.spectrogram.colormap);
     renderMetadata(metaEl, metadata);
 
     if (msg.audioBase64) {
@@ -503,6 +505,7 @@ chunksTotal = msg.total;
     config = msg.config;
     controls.updateKeybindings(config.keybindings);
     updateSpectroLabel(config.spectrogram.useMel);
+    syncColormapSelect(config.spectrogram.colormap);
 
     if (samples) { drawWaveform(); }
 
@@ -535,6 +538,10 @@ function updateSpectroLabel(useMel: boolean): void {
   linearBtn.classList.toggle('active', !useMel);
 }
 
+function syncColormapSelect(colormap: ColormapName): void {
+  colormapSelect.value = colormap;
+}
+
 function switchMode(newUseMel: boolean): void {
   if (!config || config.spectrogram.useMel === newUseMel) { return; }
   config.spectrogram.useMel = newUseMel;
@@ -547,6 +554,13 @@ function switchMode(newUseMel: boolean): void {
 
 melBtn.addEventListener('click', () => switchMode(true));
 linearBtn.addEventListener('click', () => switchMode(false));
+
+colormapSelect.addEventListener('change', () => {
+  if (!config) { return; }
+  config.spectrogram.colormap = colormapSelect.value as ColormapName;
+  vscode.postMessage({ type: 'update-colormap', value: config.spectrogram.colormap });
+  drawSpectrogram();
+});
 
 // ---- Helpers ----
 function setStatus(msg: string): void {
@@ -583,6 +597,13 @@ function buildLayout(): string {
         <button id="mel-btn" class="mode-btn">Mel</button>
         <button id="linear-btn" class="mode-btn">Linear</button>
       </div>
+      <select id="colormap-select" class="colormap-select">
+        <option value="viridis">Viridis</option>
+        <option value="magma">Magma</option>
+        <option value="inferno">Inferno</option>
+        <option value="plasma">Plasma</option>
+        <option value="grayscale">Grayscale</option>
+      </select>
     </div>
     <div class="canvas-wrap spectrogram-wrap-inner">
       <canvas id="spectrogram-canvas" class="spectrogram-canvas"></canvas>
@@ -618,15 +639,21 @@ function buildLayout(): string {
   .zoom-btn:hover { background: #3a3a3a; color: #ccc; }
   .section-label { color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 0 4px; }
   .section-header { display: flex; align-items: center; gap: 8px; }
+  .section-header .section-label { padding: 4px 0; }
   .spectro-mode-switch { display: flex; gap: 0; }
   .mode-btn {
     background: none; border: none; color: #555; font-size: 11px;
-    padding: 8px 6px 4px; cursor: pointer; font-family: inherit; letter-spacing: 0.3px; line-height: 1;
+    padding: 4px 6px; cursor: pointer; font-family: inherit; letter-spacing: 0.3px; line-height: 1;
   }
   .mode-btn:hover { color: #999; }
   .mode-btn.active { color: #ccc; font-weight: bold; cursor: default; }
   .mode-btn + .mode-btn { border-left: 1px solid #444; }
-  .section { display: flex; flex-direction: column; }
+  .colormap-select {
+    background: #2d2d2d; color: #aaa; border: 1px solid #444; border-radius: 3px;
+    font-size: 11px; font-family: inherit; padding: 2px 4px; cursor: pointer; margin-left: 8px;
+  }
+  .colormap-select:hover { background: #3a3a3a; color: #ccc; }
+  .section { display: flex; flex-direction: column; margin-top: 12px; }
   .canvas-wrap { width: 100%; overflow: hidden; background: #1e1e1e; border: 1px solid #333; border-radius: 3px; }
   .waveform-canvas { width: 100%; height: 120px; display: block; cursor: crosshair; }
   .spectrogram-wrap-inner { width: 100%; overflow: hidden; }

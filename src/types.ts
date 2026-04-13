@@ -52,7 +52,8 @@ export type ExtToWebviewMessage =
 export type WebviewToExtMessage =
   | { type: 'ready' }
   | { type: 'error'; message: string }
-  | { type: 'update-use-mel'; value: boolean };
+  | { type: 'update-use-mel'; value: boolean }
+  | { type: 'update-colormap'; value: ColormapName };
 
 // --- Worker message types ---
 
