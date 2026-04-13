@@ -49,8 +49,9 @@ Both the waveform and spectrogram share the same time axis and zoom together.
 | Shift + Scroll (on canvas) | Pan left/right |
 | `+` or `=` key | Zoom in (centered on the current view) |
 | `-` key | Zoom out |
-| `0` key | Reset to full view (fit all) |
-| **Fit** button | Reset to full view |
+| `0` key | Fit full view (reset zoom) |
+| `f` key | Fit to selection (only when a region is active) |
+| **Fit** button | Fit full view (reset zoom) |
 
 The current zoom level (e.g. `4.2×`) is shown next to the Fit button when zoomed in.
 
@@ -73,7 +74,8 @@ When a region is active, playback and loop are confined to that region.
 | `l` | Toggle loop mode |
 | `+` / `=` | Zoom in |
 | `-` | Zoom out |
-| `0` | Fit — reset to full view |
+| `0` | Fit full view (reset zoom) |
+| `f` | Fit to selection (only when a region is active) |
 
 All playback keys are configurable via settings (see below). Zoom keys are fixed.
 
