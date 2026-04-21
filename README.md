@@ -23,7 +23,7 @@ Supported formats: `.wav`, `.mp3`, `.ogg`, `.flac`, `.aac`, `.m4a`, `.aiff`, `.o
 
 Open any supported audio file in VSCode — vis-audio registers itself as the default editor and opens automatically.
 
-<img src="images/screenshot.png" width="60%">
+<img src="images/screenshot.png" width="80%">
 
 ### Zoom & Pan
 
