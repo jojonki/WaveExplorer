@@ -2,7 +2,7 @@
   "name": "wave-explorer",
   "displayName": "WaveExplorer",
   "description": "Audio file visualization with waveform and mel spectrogram (WAV, MP3, OGG, FLAC, AAC, etc.)",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "jojonki",
   "icon": "images/icon_128.png",
   "repository": {
