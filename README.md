@@ -23,21 +23,7 @@ Supported formats: `.wav`, `.mp3`, `.ogg`, `.flac`, `.aac`, `.m4a`, `.aiff`, `.o
 
 Open any supported audio file in VSCode — vis-audio registers itself as the default editor and opens automatically.
 
-```
-┌──────────────────────────────────────────────────────┐
-│  ▶ Play  ⏸ Pause  ⏹ Stop  ↺ Loop   00:01.234 / 00:03.500  │
-│  Scroll: zoom  |  Shift+Scroll: pan  |  +/- keys  [Fit]   │
-├──────────────────────────────────────────────────────┤
-│  WAVEFORM                                            │
-│  (drag to select region)                            │
-├──────────────────────────────────────────────────────┤
-│  MEL SPECTROGRAM          [Mel] [Linear]             │
-│  (drag to select region)                            │
-├──────────────────────────────────────────────────────┤
-│  FILE INFO                                           │
-│  Sample Rate: 44100 Hz  |  Channels: 2  |  …        │
-└──────────────────────────────────────────────────────┘
-```
+<img src="images/screenshot.png" width="60%">
 
 ### Zoom & Pan
 
