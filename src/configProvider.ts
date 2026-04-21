@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { VisConfig, ColormapName, WindowType } from './types';
 
 export function getConfig(resourceUri?: vscode.Uri): VisConfig {
-  const cfg = vscode.workspace.getConfiguration('visAudio', resourceUri);
+  const cfg = vscode.workspace.getConfiguration('waveExplorer', resourceUri);
   return {
     waveform: {
       color: cfg.get<string>('waveform.color', '#4fc3f7'),

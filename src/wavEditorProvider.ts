@@ -7,7 +7,7 @@ import { ExtToWebviewMessage, WebviewToExtMessage } from './types';
 const CHUNK_SIZE_BYTES = 4 * 1024 * 1024; // 4 MB per chunk
 
 export class WavEditorProvider implements vscode.CustomReadonlyEditorProvider {
-  public static readonly viewType = 'visAudio.wavEditor';
+  public static readonly viewType = 'waveExplorer.wavEditor';
 
   public static register(context: vscode.ExtensionContext): vscode.Disposable {
     return vscode.window.registerCustomEditorProvider(
@@ -50,14 +50,14 @@ export class WavEditorProvider implements vscode.CustomReadonlyEditorProvider {
         if (msg.type === 'ready') {
           await this.sendAudioData(document.uri, webviewPanel.webview);
         } else if (msg.type === 'error') {
-          vscode.window.showErrorMessage(`vis-audio: ${msg.message}`);
+          vscode.window.showErrorMessage(`WaveExplorer: ${msg.message}`);
         } else if (msg.type === 'update-use-mel') {
           await vscode.workspace
-            .getConfiguration('visAudio')
+            .getConfiguration('waveExplorer')
             .update('spectrogram.useMel', msg.value, vscode.ConfigurationTarget.Global);
         } else if (msg.type === 'update-colormap') {
           await vscode.workspace
-            .getConfiguration('visAudio')
+            .getConfiguration('waveExplorer')
             .update('spectrogram.colormap', msg.value, vscode.ConfigurationTarget.Global);
         }
       },
@@ -67,7 +67,7 @@ export class WavEditorProvider implements vscode.CustomReadonlyEditorProvider {
 
     vscode.workspace.onDidChangeConfiguration(
       (e) => {
-        if (e.affectsConfiguration('visAudio')) {
+        if (e.affectsConfiguration('waveExplorer')) {
           const configMsg: ExtToWebviewMessage = {
             type: 'config-update',
             config: getConfig(document.uri),

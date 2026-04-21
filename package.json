@@ -1,9 +1,9 @@
 {
-  "name": "vis-audio",
-  "displayName": "vis-audio",
+  "name": "wave-explorer",
+  "displayName": "WaveExplorer",
   "description": "Audio file visualization with waveform and mel spectrogram (WAV, MP3, OGG, FLAC, AAC, etc.)",
   "version": "0.1.0",
-  "publisher": "vis-audio",
+  "publisher": "jojonki",
   "repository": {
     "type": "git",
     "url": "https://github.com/jojonki/vis-audio.git"
@@ -12,53 +12,97 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Visualization"],
+  "categories": [
+    "Visualization"
+  ],
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
     "customEditors": [
       {
-        "viewType": "visAudio.wavEditor",
+        "viewType": "waveExplorer.wavEditor",
         "displayName": "Audio Visualizer",
         "selector": [
-          { "filenamePattern": "*.wav" },
-          { "filenamePattern": "*.WAV" },
-          { "filenamePattern": "*.mp3" },
-          { "filenamePattern": "*.MP3" },
-          { "filenamePattern": "*.ogg" },
-          { "filenamePattern": "*.OGG" },
-          { "filenamePattern": "*.flac" },
-          { "filenamePattern": "*.FLAC" },
-          { "filenamePattern": "*.aac" },
-          { "filenamePattern": "*.AAC" },
-          { "filenamePattern": "*.m4a" },
-          { "filenamePattern": "*.M4A" },
-          { "filenamePattern": "*.aiff" },
-          { "filenamePattern": "*.AIFF" },
-          { "filenamePattern": "*.aif" },
-          { "filenamePattern": "*.AIF" },
-          { "filenamePattern": "*.opus" },
-          { "filenamePattern": "*.OPUS" }
+          {
+            "filenamePattern": "*.wav"
+          },
+          {
+            "filenamePattern": "*.WAV"
+          },
+          {
+            "filenamePattern": "*.mp3"
+          },
+          {
+            "filenamePattern": "*.MP3"
+          },
+          {
+            "filenamePattern": "*.ogg"
+          },
+          {
+            "filenamePattern": "*.OGG"
+          },
+          {
+            "filenamePattern": "*.flac"
+          },
+          {
+            "filenamePattern": "*.FLAC"
+          },
+          {
+            "filenamePattern": "*.aac"
+          },
+          {
+            "filenamePattern": "*.AAC"
+          },
+          {
+            "filenamePattern": "*.m4a"
+          },
+          {
+            "filenamePattern": "*.M4A"
+          },
+          {
+            "filenamePattern": "*.aiff"
+          },
+          {
+            "filenamePattern": "*.AIFF"
+          },
+          {
+            "filenamePattern": "*.aif"
+          },
+          {
+            "filenamePattern": "*.AIF"
+          },
+          {
+            "filenamePattern": "*.opus"
+          },
+          {
+            "filenamePattern": "*.OPUS"
+          }
         ],
         "priority": "default"
       }
     ],
     "configuration": {
-      "title": "vis-audio",
+      "title": "WaveExplorer",
       "properties": {
-        "visAudio.waveform.color": {
+        "waveExplorer.waveform.color": {
           "type": "string",
           "default": "#4fc3f7",
           "description": "Waveform stroke color (CSS color string)"
         },
-        "visAudio.spectrogram.useMel": {
+        "waveExplorer.spectrogram.useMel": {
           "type": "boolean",
           "default": true,
-          "description": "true = メルスペクトログラム（STFT → メルフィルタバンク → log圧縮）、false = 通常の線形周波数スペクトログラム（STFT のみ）"
+          "description": "true = Mel spectrogram (STFT → Mel filter bank → log compression), false = normal linear frequency spectrogram (STFT only)"
         },
-        "visAudio.spectrogram.colormap": {
+        "waveExplorer.spectrogram.colormap": {
           "type": "string",
-          "enum": ["viridis", "magma", "inferno", "plasma", "grayscale"],
+          "enum": [
+            "viridis",
+            "magma",
+            "inferno",
+            "plasma",
+            "grayscale"
+          ],
           "enumDescriptions": [
             "Viridis (blue-green-yellow)",
             "Magma (black-purple-orange-white)",
@@ -69,58 +113,72 @@
           "default": "viridis",
           "description": "Colormap used for the mel spectrogram heatmap"
         },
-        "visAudio.mel.nMels": {
+        "waveExplorer.mel.nMels": {
           "type": "integer",
           "default": 128,
           "minimum": 8,
           "maximum": 512,
           "description": "Number of mel frequency bands"
         },
-        "visAudio.mel.nFFT": {
+        "waveExplorer.mel.nFFT": {
           "type": "integer",
-          "enum": [256, 512, 1024, 2048, 4096],
+          "enum": [
+            256,
+            512,
+            1024,
+            2048,
+            4096
+          ],
           "default": 2048,
           "description": "FFT window size (must be power of 2)"
         },
-        "visAudio.mel.hopLength": {
+        "waveExplorer.mel.hopLength": {
           "type": "integer",
           "default": 512,
           "minimum": 64,
           "description": "Number of samples between successive STFT frames"
         },
-        "visAudio.mel.fMin": {
+        "waveExplorer.mel.fMin": {
           "type": "number",
           "default": 0,
           "minimum": 0,
           "description": "Minimum frequency for mel filterbank (Hz)"
         },
-        "visAudio.mel.fMax": {
-          "type": ["number", "null"],
+        "waveExplorer.mel.fMax": {
+          "type": [
+            "number",
+            "null"
+          ],
           "default": null,
           "description": "Maximum frequency for mel filterbank (Hz). null = Nyquist frequency."
         },
-        "visAudio.mel.windowType": {
+        "waveExplorer.mel.windowType": {
           "type": "string",
-          "enum": ["hann", "hamming", "blackman", "rectangular"],
+          "enum": [
+            "hann",
+            "hamming",
+            "blackman",
+            "rectangular"
+          ],
           "default": "hann",
           "description": "Window function applied to each STFT frame"
         },
-        "visAudio.keybindings.play": {
+        "waveExplorer.keybindings.play": {
           "type": "string",
           "default": "Space",
           "description": "Key to start/resume playback. Use \"Space\" for the spacebar, or any KeyboardEvent.key value (e.g. \"p\", \"Enter\")."
         },
-        "visAudio.keybindings.pause": {
+        "waveExplorer.keybindings.pause": {
           "type": "string",
           "default": "p",
           "description": "Key to pause playback (KeyboardEvent.key value)."
         },
-        "visAudio.keybindings.stop": {
+        "waveExplorer.keybindings.stop": {
           "type": "string",
           "default": "s",
           "description": "Key to stop playback (KeyboardEvent.key value)."
         },
-        "visAudio.keybindings.loop": {
+        "waveExplorer.keybindings.loop": {
           "type": "string",
           "default": "l",
           "description": "Key to toggle loop mode (KeyboardEvent.key value)."
